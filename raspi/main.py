@@ -28,6 +28,7 @@ TURN_SPEED = 175
 TRACK_INTERVAL_SEC = 0.1
 STATUS_POLL_INTERVAL_MS = 500
 RECONNECT_INTERVAL_SEC = 2
+OBSTACLE_LED_BLINK_INTERVAL_SEC = 0.5
 
 CMD_FORWARD = "w"
 CMD_BACKWARD = "s"
@@ -46,6 +47,7 @@ MOTOR_COMMANDS = {
 LED_RED = (150, 0, 0)
 LED_GREEN = (0, 150, 0)
 LED_BLUE = (0, 0, 150)
+LED_OFF = (0, 0, 0)
 
 
 @dataclass
@@ -144,13 +146,17 @@ def stop_robot(reason="stopped"):
     set_led(LED_RED)
 
 
+def stop_for_obstacle():
+    send_motor(CMD_STOP, "obstacle")
+
+
 def set_manual_command(command):
     if command == CMD_STOP:
         stop_robot("stopped")
         return
 
-    send_motor(command, "manual")
-    set_led(LED_BLUE)
+    if send_motor(command, "manual") and not get_obstacle():
+        set_led(LED_BLUE)
 
 
 def arduino_port_candidates():
@@ -304,11 +310,14 @@ def arduino_reader_loop():
             continue
 
         distance = int(data["distance"])
+        previous_obstacle = get_obstacle()
         obstacle = 0 < distance <= SAFE_DISTANCE_CM
         update_state(distance=distance, obstacle=obstacle)
 
         if obstacle:
-            stop_robot("obstacle")
+            stop_for_obstacle()
+        elif previous_obstacle:
+            stop_robot("stopped")
 
 
 def get_target_block():
@@ -346,6 +355,20 @@ def connection_manager_loop():
         time.sleep(RECONNECT_INTERVAL_SEC)
 
 
+def led_blink_loop():
+    led_on = False
+
+    while True:
+        if not get_obstacle():
+            led_on = False
+            time.sleep(OBSTACLE_LED_BLINK_INTERVAL_SEC)
+            continue
+
+        led_on = not led_on
+        set_led(LED_RED if led_on else LED_OFF)
+        time.sleep(OBSTACLE_LED_BLINK_INTERVAL_SEC)
+
+
 def tracking_loop():
     while True:
         if get_mode() != "tracking":
@@ -353,7 +376,7 @@ def tracking_loop():
             continue
 
         if get_obstacle():
-            stop_robot("obstacle")
+            stop_for_obstacle()
             time.sleep(TRACK_INTERVAL_SEC)
             continue
 
@@ -432,6 +455,7 @@ def status():
 def start_background_threads():
     threading.Thread(target=connection_manager_loop, daemon=True).start()
     threading.Thread(target=arduino_reader_loop, daemon=True).start()
+    threading.Thread(target=led_blink_loop, daemon=True).start()
     threading.Thread(target=tracking_loop, daemon=True).start()
 
 
