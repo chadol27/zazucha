@@ -142,6 +142,22 @@ function syncKeyboardCommand() {
 }
 
 function handleMovementKeyDown(event) {
+  if (event.repeat) {
+    return;
+  }
+
+  if (event.code === "Space") {
+    event.preventDefault();
+    trackingStart();
+    return;
+  }
+
+  if (event.key === "Enter") {
+    event.preventDefault();
+    trackingStop();
+    return;
+  }
+
   const key = event.key.toLowerCase();
   if (!movementKeys.has(key)) {
     return;
