@@ -109,6 +109,10 @@
 </main>
 
 <script>
+const movementKeys = new Set(["w", "a", "s", "d"]);
+const pressedMovementKeys = [];
+let activeKeyboardCommand = null;
+
 async function post(url) {
   await fetch(url, { method: "POST" });
   await refreshStatus();
@@ -124,6 +128,46 @@ function trackingStart() {
 
 function trackingStop() {
   post("/api/tracking/stop");
+}
+
+function syncKeyboardCommand() {
+  const nextCommand = pressedMovementKeys.length > 0 ? pressedMovementKeys[0] : "x";
+
+  if (nextCommand === activeKeyboardCommand) {
+    return;
+  }
+
+  activeKeyboardCommand = nextCommand;
+  manual(nextCommand);
+}
+
+function handleMovementKeyDown(event) {
+  const key = event.key.toLowerCase();
+  if (!movementKeys.has(key)) {
+    return;
+  }
+
+  event.preventDefault();
+  if (!pressedMovementKeys.includes(key)) {
+    pressedMovementKeys.push(key);
+  }
+
+  syncKeyboardCommand();
+}
+
+function handleMovementKeyUp(event) {
+  const key = event.key.toLowerCase();
+  if (!movementKeys.has(key)) {
+    return;
+  }
+
+  event.preventDefault();
+  const index = pressedMovementKeys.indexOf(key);
+  if (index !== -1) {
+    pressedMovementKeys.splice(index, 1);
+  }
+
+  syncKeyboardCommand();
 }
 
 async function refreshStatus() {
@@ -143,6 +187,8 @@ async function refreshStatus() {
     status.target_detected ? `ID ${status.target_id}, x ${status.target_x}` : "not detected";
 }
 
+window.addEventListener("keydown", handleMovementKeyDown);
+window.addEventListener("keyup", handleMovementKeyUp);
 setInterval(refreshStatus, {{ status_poll_interval_ms }});
 refreshStatus();
 </script>
