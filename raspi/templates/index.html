@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Robot Control</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #eee;
+    }
+    body {
+      margin: 0;
+      padding: 24px;
+    }
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0 0 18px;
+      font-size: 28px;
+    }
+    section {
+      margin-bottom: 22px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 90px);
+      gap: 10px;
+      align-items: center;
+    }
+    button {
+      min-height: 48px;
+      border: 1px solid #444;
+      border-radius: 6px;
+      background: #222;
+      color: #eee;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #333;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .panel {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 8px 14px;
+      padding: 16px;
+      border: 1px solid #333;
+      border-radius: 6px;
+      background: #181818;
+    }
+    .label {
+      color: #aaa;
+    }
+    @media (max-width: 520px) {
+      body {
+        padding: 16px;
+      }
+      .grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .panel {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Robot Control</h1>
+
+  <section>
+    <div class="grid">
+      <div></div>
+      <button onclick="manual('w')">W</button>
+      <div></div>
+      <button onclick="manual('a')">A</button>
+      <button onclick="manual('x')">STOP</button>
+      <button onclick="manual('d')">D</button>
+      <div></div>
+      <button onclick="manual('s')">S</button>
+      <div></div>
+    </div>
+  </section>
+
+  <section class="row">
+    <button onclick="trackingStart()">Object Tracking ON</button>
+    <button onclick="trackingStop()">Tracking STOP</button>
+  </section>
+
+  <section class="panel">
+    <div class="label">Mode</div><div id="mode">-</div>
+    <div class="label">Last Command</div><div id="last_command">-</div>
+    <div class="label">Distance</div><div id="distance">-</div>
+    <div class="label">Obstacle</div><div id="obstacle">-</div>
+    <div class="label">Arduino</div><div id="arduino">-</div>
+    <div class="label">HuskyLens</div><div id="huskylens">-</div>
+    <div class="label">Target</div><div id="target">-</div>
+  </section>
+</main>
+
+<script>
+async function post(url) {
+  await fetch(url, { method: "POST" });
+  await refreshStatus();
+}
+
+function manual(cmd) {
+  post(`/api/manual/${cmd}`);
+}
+
+function trackingStart() {
+  post("/api/tracking/start");
+}
+
+function trackingStop() {
+  post("/api/tracking/stop");
+}
+
+async function refreshStatus() {
+  const res = await fetch("/api/status");
+  const status = await res.json();
+
+  document.getElementById("mode").textContent = status.mode;
+  document.getElementById("last_command").textContent = status.last_command;
+  document.getElementById("distance").textContent =
+    status.distance === null ? "-" : `${status.distance} cm`;
+  document.getElementById("obstacle").textContent = status.obstacle ? "yes" : "no";
+  document.getElementById("arduino").textContent =
+    status.arduino_connected ? `connected (${status.arduino_port})` : `disconnected (${status.arduino_error || "no error"})`;
+  document.getElementById("huskylens").textContent =
+    status.huskylens_connected ? "connected" : `disconnected (${status.huskylens_error || "no error"})`;
+  document.getElementById("target").textContent =
+    status.target_detected ? `ID ${status.target_id}, x ${status.target_x}` : "not detected";
+}
+
+setInterval(refreshStatus, {{ status_poll_interval_ms }});
+refreshStatus();
+</script>
+</body>
+</html>
