@@ -22,6 +22,8 @@ TARGET_ID = 1
 FRAME_CENTER_X = 160
 DEAD_ZONE = 25
 SAFE_DISTANCE_CM = 20
+DRIVE_SPEED = 125
+TURN_SPEED = 175
 
 TRACK_INTERVAL_SEC = 0.1
 STATUS_POLL_INTERVAL_MS = 500
@@ -33,15 +35,23 @@ CMD_LEFT = "a"
 CMD_RIGHT = "d"
 CMD_STOP = "x"
 
-LED_RED = "1"
-LED_GREEN = "3"
-LED_BLUE = "4"
+MOTOR_COMMANDS = {
+    CMD_FORWARD: ("f", DRIVE_SPEED, "f", DRIVE_SPEED),
+    CMD_BACKWARD: ("b", DRIVE_SPEED, "b", DRIVE_SPEED),
+    CMD_LEFT: ("b", TURN_SPEED, "f", TURN_SPEED),
+    CMD_RIGHT: ("f", TURN_SPEED, "b", TURN_SPEED),
+    CMD_STOP: ("s", 0, "s", 0),
+}
+
+LED_RED = (150, 0, 0)
+LED_GREEN = (0, 150, 0)
+LED_BLUE = (0, 0, 150)
 
 
 @dataclass
 class RobotState:
     mode: str = "stopped"
-    last_command: str = "x"
+    last_command: str = "m:s,0,s,0"
     distance: int | None = None
     obstacle: bool = False
     arduino_connected: bool = False
@@ -85,13 +95,25 @@ def get_mode():
         return state.mode
 
 
-def write_arduino(value):
+def build_motor_protocol(command):
+    left_direction, left_speed, right_direction, right_speed = MOTOR_COMMANDS[command]
+    return f"m:{left_direction},{left_speed},{right_direction},{right_speed}"
+
+
+def build_led_protocol(color):
+    red, green, blue = color
+    return f"l:{red},{green},{blue}"
+
+
+def write_arduino(command):
     if arduino is None:
         return False
 
+    line = f"{command}\n"
+
     try:
         with arduino_lock:
-            arduino.write(value.encode("ascii"))
+            arduino.write(line.encode("ascii"))
             arduino.flush()
         return True
     except (OSError, serial.SerialException) as exc:
@@ -104,16 +126,17 @@ def send_motor(command, mode=None):
         command = CMD_STOP
         mode = "stopped"
 
-    ok = write_arduino(command)
+    protocol_command = build_motor_protocol(command)
+    ok = write_arduino(protocol_command)
     if ok:
-        update_state(last_command=command)
+        update_state(last_command=protocol_command)
         if mode:
             update_state(mode=mode)
     return ok
 
 
-def set_led(command):
-    write_arduino(command)
+def set_led(color):
+    write_arduino(build_led_protocol(color))
 
 
 def stop_robot(reason="stopped"):
