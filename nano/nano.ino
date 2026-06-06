@@ -14,7 +14,8 @@ const int servoPin = 13;
 
 const int NUMPIXELS = 8;
 const int MAX_SPEED = 255;
-const int MOTOR_SPEED = 125;
+const int DRIVE_SPEED = 125;
+const int TURN_SPEED = 175;
 const unsigned long DISTANCE_INTERVAL = 100;
 const unsigned long SERVO_INTERVAL = 40;
 
@@ -40,19 +41,19 @@ void loop() {
     switch (command) {
       case 'w':
       case 'W':
-        motorForward(MOTOR_SPEED);
+        motorForward(DRIVE_SPEED);
         break;
       case 's':
       case 'S':
-        motorBackward(MOTOR_SPEED);
+        motorBackward(DRIVE_SPEED);
         break;
       case 'a':
       case 'A':
-        motorLeft(MOTOR_SPEED);
+        motorLeft(TURN_SPEED);
         break;
       case 'd':
       case 'D':
-        motorRight(MOTOR_SPEED);
+        motorRight(TURN_SPEED);
         break;
       case 'x':
       case 'X':
