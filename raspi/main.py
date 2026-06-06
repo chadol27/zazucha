@@ -26,6 +26,8 @@ DRIVE_SPEED = 125
 TURN_SPEED = 175
 
 TRACK_INTERVAL_SEC = 0.1
+TRACK_TURN_DURATION_SEC = 0.1
+TRACK_TURN_WAIT_SEC = 0.3
 STATUS_POLL_INTERVAL_MS = 500
 RECONNECT_INTERVAL_SEC = 2
 OBSTACLE_LED_BLINK_INTERVAL_SEC = 0.5
@@ -401,13 +403,22 @@ def tracking_loop():
         )
 
         if target_x < FRAME_CENTER_X - DEAD_ZONE:
-            command = CMD_LEFT
-        elif target_x > FRAME_CENTER_X + DEAD_ZONE:
-            command = CMD_RIGHT
-        else:
-            command = CMD_FORWARD
+            send_motor(CMD_LEFT, "tracking")
+            set_led(LED_GREEN)
+            time.sleep(TRACK_TURN_DURATION_SEC)
+            send_motor(CMD_STOP, "tracking")
+            time.sleep(TRACK_TURN_WAIT_SEC)
+            continue
 
-        send_motor(command, "tracking")
+        if target_x > FRAME_CENTER_X + DEAD_ZONE:
+            send_motor(CMD_RIGHT, "tracking")
+            set_led(LED_GREEN)
+            time.sleep(TRACK_TURN_DURATION_SEC)
+            send_motor(CMD_STOP, "tracking")
+            time.sleep(TRACK_TURN_WAIT_SEC)
+            continue
+
+        send_motor(CMD_FORWARD, "tracking")
         set_led(LED_GREEN)
         time.sleep(TRACK_INTERVAL_SEC)
 
