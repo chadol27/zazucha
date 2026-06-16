@@ -125,8 +125,8 @@ def write_arduino(command):
         return False
 
 
-def send_motor(command, mode=None):
-    if command != CMD_STOP and get_obstacle():
+def send_motor(command, mode=None, ignore_obstacle=False):
+    if command != CMD_STOP and get_obstacle() and not ignore_obstacle:
         command = CMD_STOP
         mode = "stopped"
 
@@ -157,7 +157,7 @@ def set_manual_command(command):
         stop_robot("stopped")
         return
 
-    if send_motor(command, "manual") and not get_obstacle():
+    if send_motor(command, "manual", ignore_obstacle=True):
         set_led(LED_BLUE)
 
 
@@ -316,9 +316,9 @@ def arduino_reader_loop():
         obstacle = 0 < distance <= SAFE_DISTANCE_CM
         update_state(distance=distance, obstacle=obstacle)
 
-        if obstacle:
+        if obstacle and get_mode() != "manual":
             stop_for_obstacle()
-        elif previous_obstacle:
+        elif previous_obstacle and get_mode() != "manual":
             stop_robot("stopped")
 
 
