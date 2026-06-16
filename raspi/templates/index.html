@@ -97,6 +97,19 @@
     <button onclick="trackingStop()">Tracking STOP</button>
   </section>
 
+  <section>
+    <h2>Imitation Learning</h2>
+    <div class="row">
+      <button onclick="collectionStart()">수집 시작</button>
+      <button onclick="collectionStop()">수집 중단</button>
+      <button onclick="deleteData()">수집된 이미지 삭제</button>
+      <button onclick="trainModel()">학습</button>
+      <button onclick="cameraReconnect()">카메라 재연결</button>
+      <button onclick="imitationStart()">운행 시작</button>
+      <button onclick="imitationStop()">운행 종료</button>
+    </div>
+  </section>
+
   <section class="panel">
     <div class="label">Mode</div><div id="mode">-</div>
     <div class="label">Last Command</div><div id="last_command">-</div>
@@ -105,6 +118,12 @@
     <div class="label">Arduino</div><div id="arduino">-</div>
     <div class="label">HuskyLens</div><div id="huskylens">-</div>
     <div class="label">Target</div><div id="target">-</div>
+    <div class="label">Camera</div><div id="camera">-</div>
+    <div class="label">Collecting</div><div id="collecting">-</div>
+    <div class="label">Dataset</div><div id="dataset">-</div>
+    <div class="label">Training</div><div id="training">-</div>
+    <div class="label">Model</div><div id="model">-</div>
+    <div class="label">Line Prediction</div><div id="line_prediction">-</div>
   </section>
 </main>
 
@@ -114,7 +133,14 @@ const pressedMovementKeys = [];
 let activeKeyboardCommand = null;
 
 async function post(url) {
-  await fetch(url, { method: "POST" });
+  const res = await fetch(url, { method: "POST" });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    if (data && data.status) {
+      renderStatus(data.status);
+      return;
+    }
+  }
   await refreshStatus();
 }
 
@@ -128,6 +154,34 @@ function trackingStart() {
 
 function trackingStop() {
   post("/api/tracking/stop");
+}
+
+function collectionStart() {
+  post("/api/learning/collect/start");
+}
+
+function collectionStop() {
+  post("/api/learning/collect/stop");
+}
+
+function deleteData() {
+  post("/api/learning/data/delete");
+}
+
+function trainModel() {
+  post("/api/learning/train");
+}
+
+function imitationStart() {
+  post("/api/imitation/start");
+}
+
+function imitationStop() {
+  post("/api/imitation/stop");
+}
+
+function cameraReconnect() {
+  post("/api/camera/reconnect");
 }
 
 function syncKeyboardCommand() {
@@ -189,7 +243,24 @@ function handleMovementKeyUp(event) {
 async function refreshStatus() {
   const res = await fetch("/api/status");
   const status = await res.json();
+  renderStatus(status);
+}
 
+function formatDuration(seconds) {
+  if (seconds === null || seconds === undefined) {
+    return "-";
+  }
+
+  const rounded = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(rounded / 60);
+  const secs = rounded % 60;
+  if (minutes > 0) {
+    return `${minutes}m ${secs}s`;
+  }
+  return `${secs}s`;
+}
+
+function renderStatus(status) {
   document.getElementById("mode").textContent = status.mode;
   document.getElementById("last_command").textContent = status.last_command;
   document.getElementById("distance").textContent =
@@ -201,6 +272,26 @@ async function refreshStatus() {
     status.huskylens_connected ? "connected" : `disconnected (${status.huskylens_error || "no error"})`;
   document.getElementById("target").textContent =
     status.target_detected ? `ID ${status.target_id}, x ${status.target_x}` : "not detected";
+  document.getElementById("camera").textContent =
+    status.camera_connected ? `connected (${status.camera_index})` : `disconnected (${status.camera_error || "no error"})`;
+  document.getElementById("collecting").textContent = status.collecting ? "yes" : "no";
+  document.getElementById("dataset").textContent =
+    status.dataset_counts
+      ? `forward ${status.dataset_counts.forward}, left ${status.dataset_counts.left}, right ${status.dataset_counts.right}`
+      : "-";
+  if (status.training) {
+    const percent = Math.round((status.train_progress || 0) * 100);
+    document.getElementById("training").textContent =
+      `${status.train_message || "running"} (${percent}%, ETA ${formatDuration(status.train_eta_seconds)})`;
+  } else {
+    document.getElementById("training").textContent = status.train_message || "idle";
+  }
+  document.getElementById("model").textContent =
+    status.model_ready ? "ready" : "not ready";
+  document.getElementById("line_prediction").textContent =
+    status.last_prediction
+      ? `${status.last_prediction} (${Math.round(status.last_prediction_confidence * 100)}%)`
+      : "-";
 }
 
 window.addEventListener("keydown", handleMovementKeyDown);
